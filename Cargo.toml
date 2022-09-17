@@ -2,9 +2,20 @@
 name = "quadrunster"
 version = "0.1.0"
 edition = "2021"
+default-run = "builder"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 macroquad = "0.3"
 rand = "0.8.5"
+
+[[bin]]
+name = "runster"
+path = "src/runster.rs"
+
+[[bin]]
+name = "builder"
+path = "src/builder.rs"
+
+
