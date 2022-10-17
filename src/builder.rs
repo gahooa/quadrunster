@@ -1,7 +1,6 @@
-
-
 mod common;
 mod blocks;
+
 use common::{
     LEVEL_HEIGHT,
     LEVEL_WIDTH,
@@ -16,90 +15,99 @@ use blocks::{
 use macroquad::prelude::*;
 use ::rand::{thread_rng, Rng};
 
-
-
-
-
-
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("Quad Runster"),
-        window_width: 1024,
-        window_height: 1024,
+        window_width: 1024, 
+        window_height: 1024, 
         fullscreen: false,
+        window_resizable: false, // don't know if you want this
         ..Default::default()
     }
-}
+} //window config
 
 fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block{
     &level[(x as usize) + (y as usize) * LEVEL_WIDTH]
 }
 
 
+struct Game {
+    scroll: f32,
+    level_blocks: Vec<Block>,
+    build_block: BlockType,
+    gamestate: GameState,
+}
 
-#[macroquad::main(window_conf)]
-async fn main() {
-    common::foo();
+impl Game {
+    fn start() -> Self {
+        common::foo();
+        let mut scroll:f32 = 0.0;
+        let mut level_blocks: Vec<Block> = Vec::new();
+        let mut gamestate: GameState = GameState::Building;
+        
+        let mut rng = thread_rng();
 
-    let mut rng = thread_rng();
-    let mut scroll:f32 = 0.0;
-    let mut level_blocks: Vec<Block> = Vec::new();
-
-
-    for x in 0..LEVEL_WIDTH{
-        for y in 0..LEVEL_HEIGHT{
-            let block_type = if rng.gen_range(0..100) < 2{
-                BlockType::Rock
-            }else {
-                if rng.gen_range(0..100) < 2{
-                    BlockType::Water
-                }else{
-                    BlockType::Empty
-                }
-            };
-            level_blocks.push(Block::new(x, y, block_type));
+        for x in 0..LEVEL_WIDTH{
+            for y in 0..LEVEL_HEIGHT{
+                let block_type = if rng.gen_range(0..100) < 2 {
+                    BlockType::Rock
+                } else {
+                    if rng.gen_range(0..100) < 2{
+                        BlockType::Water
+                    }else{
+                        BlockType::Empty
+                    }
+                };
+                level_blocks.push(Block::new(x, y, block_type));
+            }
         }
+
+        Self {
+            scroll,
+            level_blocks,
+            build_block: BlockType::Lava { heat: 15.0 },
+            gamestate,
+        }
+        
+        
     }
-    
 
-    loop {
-
-
+    async fn tick(&mut self) {
         let (mouse_x, mouse_y) = mouse_position();
         let sh = screen_height();
-        let bxy = mouse_to_block_xy(mouse_x, mouse_y, scroll, sh);
+        let bxy = mouse_to_block_xy(mouse_x, mouse_y, self.scroll, sh);
                 
         
         if is_key_down(KeyCode::A){
             if is_key_down(KeyCode::LeftShift){
-                scroll -= 64.0;
+                self.scroll -= 64.0;
             }
             else {
-                scroll -= 16.0;
+                self.scroll -= 16.0;
             }
-            if scroll < 0.0{
-                scroll = 0.0;
+            if self.scroll < 0.0{
+                self.scroll = 0.0;
             }
         }
         if is_key_down(KeyCode::D){
             if is_key_down(KeyCode::LeftShift){
-                scroll += 64.0;
+                self.scroll += 64.0;
             }
             else {
-                scroll += 16.0;
+                self.scroll += 16.0;
             }
-            if scroll > (LEVEL_WIDTH*16) as f32 - screen_width(){
-                scroll = (LEVEL_WIDTH*16) as f32 - screen_width();
+            if self.scroll > (LEVEL_WIDTH*16) as f32 - screen_width(){
+                self.scroll = (LEVEL_WIDTH*16) as f32 - screen_width();
             }
         }
         
         if let Some((bx, by)) = bxy {
             if is_mouse_button_down(MouseButton::Left){
-                level_blocks[(bx + by * LEVEL_WIDTH)].block_type = BlockType::Lava{heat: 0.0};
+                self.level_blocks[(bx + by * LEVEL_WIDTH)].block_type = self.build_block;
                 println!("Block: {:?} {:?}", bx, by);
             }
             if is_mouse_button_down(MouseButton::Right){
-                level_blocks[(bx + by * LEVEL_WIDTH)].block_type = BlockType::Empty;
+                self.level_blocks[(bx + by * LEVEL_WIDTH)].block_type = BlockType::Empty;
                 println!("Block: {:?} {:?}", bx, by);
             }
 
@@ -110,32 +118,41 @@ async fn main() {
         
         
         clear_background(BLACK);
-        for x in 0..LEVEL_WIDTH{
-            for y in 0..LEVEL_HEIGHT{
-                let block = get_block(x as u8, y as u8, &level_blocks);
+        for x in 0..LEVEL_WIDTH {
+            for y in 0..LEVEL_HEIGHT {
+                let block = get_block(x as u8, y as u8, &self.level_blocks);
                 let block_color = match block.block_type{
                     BlockType::Empty => BLACK,
                     BlockType::Rock => GRAY,
                     BlockType::Water => BLUE,
                     BlockType::Lava{heat: _} => RED,
                 };
-                draw_rectangle(x as f32 * 16.0-scroll+1.0, sh - y as f32 * 16.0+1.0, 14.0, 14.0, block_color);
+                draw_rectangle(x as f32 * 16.0-self.scroll+1.0, sh - y as f32 * 16.0+1.0, 14.0, 14.0, block_color);
             }
         }
 
         if let Some((bx, by)) = bxy{
-            draw_rectangle_lines(bx as f32 * 16.0-scroll, sh - by as f32 * 16.0, 16.0, 16.0, 2.0, WHITE);
+            draw_rectangle_lines(bx as f32 * 16.0-self.scroll, sh - by as f32 * 16.0, 16.0, 16.0, 2.0, WHITE);
             draw_line(0.0, sh - by as f32 * 16.0+8.0, screen_width(), sh - by as f32 * 16.0+8.0, 1.0, GRAY);
-            draw_line(bx as f32 * 16.0-scroll+8.0, 0.0, bx as f32 * 16.0-scroll+8.0, screen_height(), 1.0, GRAY);
+            draw_line(bx as f32 * 16.0-self.scroll+8.0, 0.0, bx as f32 * 16.0-self.scroll+8.0, screen_height(), 1.0, GRAY);
         }
 
         next_frame().await
     }
 
-
 }
 
 
+#[macroquad::main(window_conf)]
+async fn main() {
+    let mut game = Game::start();
+    loop {game.tick().await}
+}
+
+enum GameState {
+    Menu,
+    Building,
+}
 
 /*
 

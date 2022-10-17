@@ -3,7 +3,7 @@ use crate::common::{
     LEVEL_HEIGHT,
     LEVEL_WIDTH,
 };
-
+#[derive(Copy, Clone)]
 pub enum BlockType {
     Empty,
     Rock,
