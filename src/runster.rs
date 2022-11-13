@@ -10,7 +10,7 @@ enum BlockType {
 const LEVEL_WIDTH: usize = 256;
 const LEVEL_HEIGHT: usize = 32;
 
-struct Block{
+struct Block {
     x: u8,
     y: u8,
     block_type: BlockType,
@@ -27,7 +27,6 @@ impl Block{
 
 }
 
-
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("Quad Runster"),
@@ -38,7 +37,7 @@ fn window_conf() -> Conf {
     }
 }
 
-fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block{
+fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block {
     &level[(x as usize) + (y as usize) * LEVEL_WIDTH]
 }
 
@@ -98,6 +97,10 @@ async fn main() {
 
 
 }
+
+
+
+
 
 
 

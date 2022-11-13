@@ -1,6 +1,8 @@
 mod common;
 mod blocks;
 
+use std::process::exit;
+
 use common::{
     LEVEL_HEIGHT,
     LEVEL_WIDTH,
@@ -26,7 +28,7 @@ fn window_conf() -> Conf {
     }
 } //window config
 
-fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block{
+fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block {
     &level[(x as usize) + (y as usize) * LEVEL_WIDTH]
 }
 
@@ -36,6 +38,7 @@ struct Game {
     level_blocks: Vec<Block>,
     build_block: BlockType,
     gamestate: GameState,
+    menustate: Option<MenuState>
 }
 
 impl Game {
@@ -43,7 +46,7 @@ impl Game {
         common::foo();
         let mut scroll:f32 = 0.0;
         let mut level_blocks: Vec<Block> = Vec::new();
-        let mut gamestate: GameState = GameState::Building;
+        let mut gamestate: GameState = GameState::Edit;
         
         let mut rng = thread_rng();
 
@@ -52,9 +55,9 @@ impl Game {
                 let block_type = if rng.gen_range(0..100) < 2 {
                     BlockType::Rock
                 } else {
-                    if rng.gen_range(0..100) < 2{
+                    if rng.gen_range(0..100) < 2 {
                         BlockType::Water
-                    }else{
+                    } else {
                         BlockType::Empty
                     }
                 };
@@ -67,19 +70,64 @@ impl Game {
             level_blocks,
             build_block: BlockType::Lava { heat: 15.0 },
             gamestate,
+            menustate: None,
         }
         
         
     }
 
     async fn tick(&mut self) {
+        match self.gamestate {
+            GameState::Menu => {self.menutick().await;},
+            GameState::Edit => {self.edittick().await;},
+            GameState::Play => {self.playtick().await;},
+        }
+    }
+
+    async fn playtick(&mut self) {
+
+    }
+
+    async fn menutick(&mut self) {
+        match self.menustate {
+            None => {
+                self.menustate = Some(MenuState::Switcher)
+            },
+
+            Some(_) => {
+                draw_rectangle(screen_width()/2.0-200.0, screen_height()/2.0-300.0, 400.0, 600.0, WHITE);
+                draw_text("edit", screen_width()/2.0-140.0, screen_height()/2.0-200.0, 150.0, BLACK);
+                draw_text("play", screen_width()/2.0-140.0, screen_height()/2.0, 150.0, BLACK);
+                draw_text("quit", screen_width()/2.0-140.0, screen_height()/2.0+200.0, 150.0, BLACK);
+
+                
+                if is_mouse_button_down(MouseButton::Left) {
+                    let (mx, my) = mouse_position();
+                    if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
+                        if my > screen_height()/2.0-300.0 && my < screen_height()/2.0-100.0 {
+                            self.gamestate = GameState::Edit;
+                        } else if my > screen_height()/2.0-100.0 && my < screen_height()/2.0+100.0 {
+                            self.gamestate = GameState::Play;
+                        } else if my > screen_height()/2.0+100.0 && my < screen_height()/2.0+300.0 {
+                            exit(490)
+                        }
+                    }
+                }
+            },
+        }
+    }
+
+    async fn edittick(&mut self) {
         let (mouse_x, mouse_y) = mouse_position();
         let sh = screen_height();
         let bxy = mouse_to_block_xy(mouse_x, mouse_y, self.scroll, sh);
                 
-        
-        if is_key_down(KeyCode::A){
-            if is_key_down(KeyCode::LeftShift){
+        if is_key_down(KeyCode::Escape) {
+            self.gamestate = GameState::Menu;
+        }
+
+        if is_key_down(KeyCode::A) {
+            if is_key_down(KeyCode::LeftShift) {
                 self.scroll -= 64.0;
             }
             else {
@@ -89,14 +137,14 @@ impl Game {
                 self.scroll = 0.0;
             }
         }
-        if is_key_down(KeyCode::D){
-            if is_key_down(KeyCode::LeftShift){
+        if is_key_down(KeyCode::D) {
+            if is_key_down(KeyCode::LeftShift) {
                 self.scroll += 64.0;
             }
             else {
                 self.scroll += 16.0;
             }
-            if self.scroll > (LEVEL_WIDTH*16) as f32 - screen_width(){
+            if self.scroll > (LEVEL_WIDTH*16) as f32 - screen_width() {
                 self.scroll = (LEVEL_WIDTH*16) as f32 - screen_width();
             }
         }
@@ -137,21 +185,34 @@ impl Game {
             draw_line(bx as f32 * 16.0-self.scroll+8.0, 0.0, bx as f32 * 16.0-self.scroll+8.0, screen_height(), 1.0, GRAY);
         }
 
-        next_frame().await
     }
 
 }
 
+fn draw_smooth(x: f32, y: f32, w: f32, h: f32, s: f32, color: Color) {
+    draw_rectangle(x+s, y, w-2.0*s, h, color);
+    draw_rectangle(x, y+s, w, h-2.0*s, color);
+    draw_poly(x+s, y+s, s as u8, s, 0.0, color);
+    draw_poly(x+w-s, y+h-s, s as u8, s, 0.0, color);
+    draw_poly(x+s, y+h-s, s as u8, s, 0.0, color);
+    draw_poly(x+w-s, y+s, s as u8, s, 0.0, color);
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut game = Game::start();
-    loop {game.tick().await}
+    loop { game.tick().await; next_frame().await }
 }
 
 enum GameState {
     Menu,
-    Building,
+    Edit,
+    Play,
+}
+
+#[derive(Copy, Clone)]
+enum MenuState {
+    Switcher,
 }
 
 /*
