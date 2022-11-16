@@ -38,11 +38,12 @@ struct Game {
     level_blocks: Vec<Block>,
     build_block: BlockType,
     gamestate: GameState,
-    menustate: Option<MenuState>
+    menustate: Option<MenuState>,
+    font: Font,
 }
 
 impl Game {
-    fn start() -> Self {
+    async fn start() -> Self {
         common::foo();
         let mut scroll:f32 = 0.0;
         let mut level_blocks: Vec<Block> = Vec::new();
@@ -65,42 +66,46 @@ impl Game {
             }
         }
 
+        let font = load_ttf_font("./src/resources/Flamenco-Regular.ttf").await.unwrap();
+
         Self {
             scroll,
             level_blocks,
             build_block: BlockType::Lava { heat: 15.0 },
             gamestate,
             menustate: None,
+            font,
         }
         
         
     }
 
-    async fn tick(&mut self) {
+    fn tick(&mut self) {
         match self.gamestate {
-            GameState::Menu => {self.menutick().await;},
-            GameState::Edit => {self.edittick().await;},
-            GameState::Play => {self.playtick().await;},
+            GameState::Menu => {self.menutick()},
+            GameState::Edit => {self.edittick()},
+            GameState::Play => {self.playtick()},
         }
     }
 
-    async fn playtick(&mut self) {
-
+    fn playtick(&mut self) {
+        if is_key_down(KeyCode::Escape) {
+            self.gamestate = GameState::Menu;
+        }
     }
 
-    async fn menutick(&mut self) {
+    fn menutick(&mut self) {
         match self.menustate {
             None => {
                 self.menustate = Some(MenuState::Switcher)
             },
 
             Some(_) => {
-                draw_rectangle(screen_width()/2.0-200.0, screen_height()/2.0-300.0, 400.0, 600.0, WHITE);
-                draw_text("edit", screen_width()/2.0-140.0, screen_height()/2.0-200.0, 150.0, BLACK);
-                draw_text("play", screen_width()/2.0-140.0, screen_height()/2.0, 150.0, BLACK);
-                draw_text("quit", screen_width()/2.0-140.0, screen_height()/2.0+200.0, 150.0, BLACK);
-
-                
+                draw_smooth(screen_width()/2.0-190.0, screen_height()/2.0-290.0, 400.0, 600.0, 20.0, DARKGRAY);
+                draw_smooth(screen_width()/2.0-200.0, screen_height()/2.0-300.0, 400.0, 600.0, 20.0, WHITE);
+                draw_text_ex("edit", screen_width()/2.0-135.0, screen_height()/2.0-180.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
+                draw_text_ex("play", screen_width()/2.0-135.0, screen_height()/2.0+20.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
+                draw_text_ex("quit", screen_width()/2.0-135.0, screen_height()/2.0+220.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
                 if is_mouse_button_down(MouseButton::Left) {
                     let (mx, my) = mouse_position();
                     if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
@@ -117,7 +122,7 @@ impl Game {
         }
     }
 
-    async fn edittick(&mut self) {
+    fn edittick(&mut self) {
         let (mouse_x, mouse_y) = mouse_position();
         let sh = screen_height();
         let bxy = mouse_to_block_xy(mouse_x, mouse_y, self.scroll, sh);
@@ -200,8 +205,8 @@ fn draw_smooth(x: f32, y: f32, w: f32, h: f32, s: f32, color: Color) {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut game = Game::start();
-    loop { game.tick().await; next_frame().await }
+    let mut game = Game::start().await;
+    loop { game.tick(); next_frame().await }
 }
 
 enum GameState {
