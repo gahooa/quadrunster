@@ -1,7 +1,7 @@
 
 
 pub fn foo() {
-    println!("boo");
+    
 }
 
 pub const LEVEL_WIDTH: usize = 256;
