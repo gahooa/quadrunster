@@ -9,6 +9,7 @@ pub enum BlockType {
     Rock,
     Water,
     Lava {heat: f32},
+    Spawn,
 }
 
 pub struct Block{

@@ -37,9 +37,11 @@ struct Game {
     scroll: f32,
     level_blocks: Vec<Block>,
     build_block: BlockType,
+    spawn: (u32, u32),
     gamestate: GameState,
     menustate: Option<MenuState>,
     font: Font,
+    pos: (f32, f32)
 }
 
 impl Game {
@@ -63,9 +65,11 @@ impl Game {
             scroll,
             level_blocks,
             build_block: BlockType::Lava { heat: 15.0 },
+            spawn: (0, 0),
             gamestate,
             menustate: None,
             font,
+            pos: (0.0, 0.0),
         }
         
         
@@ -83,6 +87,8 @@ impl Game {
         if is_key_down(KeyCode::Escape) {
             self.gamestate = GameState::Menu;
         }
+
+
     }
 
     fn menutick(&mut self) {
@@ -106,8 +112,10 @@ impl Game {
                     if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
                         if my > screen_height()/2.0-300.0 && my < screen_height()/2.0-120.0 {
                             self.gamestate = GameState::Edit;
+                            
                         } else if my > screen_height()/2.0-95.0 && my < screen_height()/2.0+75.0 {
                             self.gamestate = GameState::Play;
+                            self.pos = (self.spawn.0 as f32 + 0.5, self.spawn.1 as f32 + 0.5);
                         } else if my > screen_height()/2.0+110.0 && my < screen_height()/2.0+290.0 {
                             exit(490)
                         }
@@ -152,7 +160,14 @@ impl Game {
         if let Some((bx, by)) = bxy {
             if is_mouse_button_down(MouseButton::Left){
                 self.level_blocks[(bx + by * LEVEL_WIDTH)].block_type = self.build_block;
-                
+                match self.build_block {
+                    BlockType::Spawn => {
+                        if self.spawn != (bx as u32, by as u32) {self.level_blocks[(self.spawn.0 as usize  + self.spawn.1 as usize * LEVEL_WIDTH)].block_type = BlockType::Empty}
+                        self.spawn.0 = bx as u32;
+                        self.spawn.1 = by as u32;
+                    },
+                    _ => {},
+                }
             }
             if is_mouse_button_down(MouseButton::Right){
                 self.level_blocks[(bx + by * LEVEL_WIDTH)].block_type = BlockType::Empty;
@@ -160,20 +175,17 @@ impl Game {
             }
 
         }
-
-
-
-        
         
         clear_background(BLACK);
         for x in 0..LEVEL_WIDTH {
             for y in 0..LEVEL_HEIGHT {
                 let block = get_block(x as u8, y as u8, &self.level_blocks);
                 let block_color = match block.block_type{
-                    BlockType::Empty => BLACK,
                     BlockType::Rock => GRAY,
                     BlockType::Water => BLUE,
                     BlockType::Lava{heat: _} => RED,
+                    BlockType::Spawn => PINK,
+                    _ => BLACK,
                 };
                 draw_rectangle(x as f32 * 16.0-self.scroll+1.0, sh - y as f32 * 16.0+1.0, 14.0, 14.0, block_color);
             }
@@ -191,6 +203,7 @@ impl Game {
             BlockType::Lava { heat: _ } => RED,
             BlockType::Water => BLUE,
             BlockType::Rock => GRAY,
+            BlockType::Spawn => PINK,
             _ => BLACK,
         });
 
@@ -200,6 +213,8 @@ impl Game {
             self.build_block = BlockType::Water
         } else if is_key_pressed(KeyCode::Key3) {
             self.build_block = BlockType::Rock
+        } else if is_key_pressed(KeyCode::Key4) {
+            self.build_block = BlockType::Spawn
         }
 
     }
