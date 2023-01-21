@@ -98,28 +98,34 @@ impl Game {
             },
 
             Some(_) => {
-                draw_smooth(screen_width()/2.0-190.0, screen_height()/2.0-300.0, 400.0, 180.0, 20.0, DARKGRAY);
-                draw_smooth(screen_width()/2.0-195.0, screen_height()/2.0-310.0, 400.0, 180.0, 20.0, WHITE);
-                draw_smooth(screen_width()/2.0-190.0, screen_height()/2.0-95.0, 400.0, 180.0, 20.0, DARKGRAY);
-                draw_smooth(screen_width()/2.0-195.0, screen_height()/2.0-105.0, 400.0, 180.0, 20.0, WHITE);
-                draw_smooth(screen_width()/2.0-190.0, screen_height()/2.0+110.0, 400.0, 180.0, 20.0, DARKGRAY);
-                draw_smooth(screen_width()/2.0-195.0, screen_height()/2.0+100.0, 400.0, 180.0, 20.0, WHITE);
+                draw_rectangle(screen_width()/2.0-195.0, screen_height()/2.0-310.0, 400.0, 180.0, WHITE);
+                draw_rectangle(screen_width()/2.0-195.0, screen_height()/2.0-105.0, 400.0, 180.0, WHITE);
+                draw_rectangle(screen_width()/2.0-195.0, screen_height()/2.0+100.0, 400.0, 180.0, WHITE);
                 draw_text_ex("edit", screen_width()/2.0-125.0, screen_height()/2.0-180.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
                 draw_text_ex("play", screen_width()/2.0-125.0, screen_height()/2.0+20.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
                 draw_text_ex("quit", screen_width()/2.0-125.0, screen_height()/2.0+220.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
-                if is_mouse_button_down(MouseButton::Left) {
-                    let (mx, my) = mouse_position();
-                    if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
+                let (mx, my) = mouse_position();
+                if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
                         if my > screen_height()/2.0-300.0 && my < screen_height()/2.0-120.0 {
-                            self.gamestate = GameState::Edit;
-                            
+                            draw_rectangle_lines(screen_width()/2.0-195.0, screen_height()/2.0-310.0, 400.0, 180.0, 10.0, BLUE);
+
+                            if is_mouse_button_down(MouseButton::Left) { 
+                                self.gamestate = GameState::Edit;
+                            }
                         } else if my > screen_height()/2.0-95.0 && my < screen_height()/2.0+75.0 {
-                            self.gamestate = GameState::Play;
-                            self.pos = (self.spawn.0 as f32 + 0.5, self.spawn.1 as f32 + 0.5);
+                            draw_rectangle_lines(screen_width()/2.0-195.0, screen_height()/2.0-105.0, 400.0, 180.0, 10.0, BLUE);
+
+                            if is_mouse_button_down(MouseButton::Left) {
+                                self.gamestate = GameState::Play;
+                                self.pos = (self.spawn.0 as f32 + 0.5, self.spawn.1 as f32 + 0.5);
+                            }
                         } else if my > screen_height()/2.0+110.0 && my < screen_height()/2.0+290.0 {
-                            exit(490)
+                            draw_rectangle_lines(screen_width()/2.0-195.0, screen_height()/2.0+100.0, 400.0, 180.0, 10.0, RED);
+
+                            if is_mouse_button_down(MouseButton::Left) {
+                                exit(100)
+                            }
                         }
-                    }
                 }
             },
         }
@@ -197,15 +203,21 @@ impl Game {
             draw_line(bx as f32 * 16.0-self.scroll+8.0, 0.0, bx as f32 * 16.0-self.scroll+8.0, screen_height(), 1.0, GRAY);
         }
 
-        draw_outlined_rectangle(screen_width()/2.0-25.0, screen_height()-60.0, 50.0, 50.0, 3.0, WHITE);
-        draw_rectangle(screen_width()/2.0-10.0, screen_height()-45.0, 20.0, 20.0, 
-        match self.build_block {
-            BlockType::Lava { heat: _ } => RED,
-            BlockType::Water => BLUE,
-            BlockType::Rock => GRAY,
-            BlockType::Spawn => PINK,
-            _ => BLACK,
-        });
+        let selected = match self.build_block {
+            BlockType::Lava { heat: _ } => 1.0,
+            BlockType::Water => 2.0,
+            BlockType::Rock => 3.0,
+            BlockType::Spawn => 4.0,
+            _ => 5.0,
+        };
+
+        draw_rectangle_lines(screen_width()/2.0-150.0+(50.0*selected), screen_height()-60.0, 50.0, 50.0, 6.0, WHITE);
+        draw_rectangle(screen_width()/2.0-85.0, screen_height()-45.0, 20.0, 20.0, RED);
+        draw_rectangle(screen_width()/2.0-35.0, screen_height()-45.0, 20.0, 20.0, BLUE);
+        draw_rectangle(screen_width()/2.0+15.0, screen_height()-45.0, 20.0, 20.0, GRAY);
+        draw_rectangle(screen_width()/2.0+65.0, screen_height()-45.0, 20.0, 20.0, PINK);
+
+
 
         if is_key_pressed(KeyCode::Key1) {
             self.build_block = BlockType::Lava { heat: 15.0 }
@@ -221,21 +233,10 @@ impl Game {
 
 }
 
-fn draw_smooth(x: f32, y: f32, w: f32, h: f32, s: f32, color: Color) {
-    draw_rectangle(x+s, y, w-2.0*s, h, color);
-    draw_rectangle(x, y+s, w, h-2.0*s, color);
-    draw_poly(x+s, y+s, s as u8, s, 0.0, color);
-    draw_poly(x+w-s, y+h-s, s as u8, s, 0.0, color);
-    draw_poly(x+s, y+h-s, s as u8, s, 0.0, color);
-    draw_poly(x+w-s, y+s, s as u8, s, 0.0, color);
+fn check_hover(mx: f32, my: f32, x: f32, y: f32, w: f32, h: f32) -> bool {
+    if mx > x && mx < x+w {if my > y && my < y+h {return true} else {return false}} else {return false}
 }
 
-fn draw_outlined_rectangle(x: f32, y: f32, w: f32, h: f32, t: f32, color: Color) {
-    draw_rectangle(x+w-t, y, t, h, color);
-    draw_rectangle(x, y, w, t, color);
-    draw_rectangle(x, y, t, h, color);
-    draw_rectangle(x, y+w-t, w, t, color);
-}
 
 #[macroquad::main(window_conf)]
 async fn main() {
