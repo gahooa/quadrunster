@@ -9,6 +9,7 @@ pub enum BlockType {
     Rock,
     Water,
     Lava {heat: f32},
+    Spawn,
 }
 
 pub struct Block{
@@ -28,13 +29,13 @@ impl Block{
 }
 
 pub fn mouse_to_block_xy(x: f32, y: f32, scroll: f32, sh: f32) -> Option<(usize, usize)>{
-    let x = ((x+scroll)/16.0) as usize;
-    let y = ((sh-(y-16.0))/16.0) as usize;
+    let bx = ((x+scroll)/16.0) as usize;
+    let by = ((1024.0-(y-16.0))/16.0) as usize;
 
-    if x < LEVEL_WIDTH && y < LEVEL_HEIGHT{
-        Some((x, y))
+    if bx < LEVEL_WIDTH && by < LEVEL_HEIGHT && y < 1038.0 {
+        Some((bx, by))
     }
-    else{
+    else {
         None
     }
 }
