@@ -1,355 +1,395 @@
-mod common;
-mod blocks;
+const MAP_SIZE: BlockPosition = (100, 53);
+use macroquad::{prelude::*, ui::widgets::Button as OtherButton};
 
-use std::{process::exit, io::Empty};
+type BlockPosition = (usize, usize);
 
-use common::{
-    LEVEL_HEIGHT,
-    LEVEL_WIDTH,
-};
-
-use blocks::{
-    BlockType,
-    Block,
-    mouse_to_block_xy,
-};
-
-use macroquad::prelude::*;
-use ::rand::{thread_rng, Rng};
-
-fn window_conf() -> Conf {
-    Conf {
-        window_title: String::from("Quad Runster"),
-        window_width: 1024, 
-        window_height: 1152, 
-        fullscreen: false,
-        window_resizable: false, // don't know if you want this
-        ..Default::default()
-    }
-} //window config
-
-fn get_block(x: u8, y: u8, level: &Vec<Block>) -> &Block {
-    &level[(x as usize) + (y as usize) * LEVEL_WIDTH]
+struct Global {
+    state: State,
+    buttons: Vec<Button>,
+    map: Map,
 }
 
+impl Global {
+    fn init() -> Self {
+        let mut init = Self {
+            state: State {statetype: StateType::Menu, tickcount: 0},
+            buttons: Vec::from([Button::edit_menu(), Button::play_menu()]),
+            map: Map::new(),
+        };
 
-struct Game {
-    scroll: f32,
-    level_blocks: Vec<Block>,
-    build_block: BlockType,
-    spawn: (u32, u32),
-    gamestate: GameState,
-    menustate: Option<MenuState>,
-    font: Font,
-    pos: (f32, f32),
-    pensize: usize,
-}
+        //init.
 
-impl Game {
-    async fn start() -> Self {
-        common::foo();
-        let mut scroll:f32 = 0.0;
-        let mut level_blocks: Vec<Block> = Vec::new();
-        let mut gamestate: GameState = GameState::Edit;
-        
-        let mut rng = thread_rng();
-
-        for x in 0..LEVEL_WIDTH {
-            for y in 0..LEVEL_HEIGHT {
-                level_blocks.push(Block::new(x, y, BlockType::Empty));
-            }
-        }
-
-        let font = load_ttf_font("./src/resources/Flamenco-Regular.ttf").await.unwrap();
-
-        Self {
-            scroll,
-            level_blocks,
-            build_block: BlockType::Lava { heat: 15.0 },
-            spawn: (0, 0),
-            gamestate,
-            menustate: None,
-            font,
-            pos: (0.0, 0.0),
-            pensize: 2,
-        }
-        
-        
+        init
     }
 
     fn tick(&mut self) {
-        match self.gamestate {
-            GameState::Menu => {self.menutick()},
-            GameState::Edit => {self.edittick()},
-            GameState::Play => {self.playtick()},
-        }
-    }
-
-    fn playtick(&mut self) {
-        if is_key_down(KeyCode::Escape) {
-            self.gamestate = GameState::Menu;
-        }
-
-
-    }
-
-    fn menutick(&mut self) {
-        let sh = screen_height();
-        match self.menustate {
-            None => {
-                self.menustate = Some(MenuState::Switcher)
+        match &self.state.statetype {
+            StateType::Menu => {
+                
             },
 
-            Some(_) => {
-                draw_rectangle(screen_width()/2.0-195.0, sh/2.0-310.0, 400.0, 180.0, WHITE);
-                draw_rectangle(screen_width()/2.0-195.0, sh/2.0-105.0, 400.0, 180.0, WHITE);
-                draw_rectangle(screen_width()/2.0-195.0, sh/2.0+100.0, 400.0, 180.0, WHITE);
-                draw_text_ex("edit", screen_width()/2.0-125.0, sh/2.0-180.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
-                draw_text_ex("play", screen_width()/2.0-125.0, sh/2.0+20.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
-                draw_text_ex("quit", screen_width()/2.0-125.0, sh/2.0+220.0, TextParams {font_size: 150, font: self.font, color: BLACK, ..Default::default()},);
-                let (mx, my) = mouse_position();
-                if mx > screen_width()/2.0-200.0 && mx < screen_width()/2.0+200.0 {
-                        if my > sh/2.0-300.0 && my < sh/2.0-120.0 {
-                            draw_rectangle_lines(screen_width()/2.0-195.0, sh/2.0-310.0, 400.0, 180.0, 10.0, BLUE);
-
-                            if is_mouse_button_down(MouseButton::Left) { 
-                                self.gamestate = GameState::Edit;
-                            }
-                        } else if my > sh/2.0-95.0 && my < sh/2.0+75.0 {
-                            draw_rectangle_lines(screen_width()/2.0-195.0, sh/2.0-105.0, 400.0, 180.0, 10.0, BLUE);
-
-                            if is_mouse_button_down(MouseButton::Left) {
-                                self.gamestate = GameState::Play;
-                                self.pos = (self.spawn.0 as f32 + 0.5, self.spawn.1 as f32 + 0.5);
-                            }
-                        } else if my > sh/2.0+110.0 && my < sh/2.0+290.0 {
-                            draw_rectangle_lines(screen_width()/2.0-195.0, sh/2.0+100.0, 400.0, 180.0, 10.0, RED);
-
-                            if is_mouse_button_down(MouseButton::Left) {
-                                exit(100)
-                            }
-                        }
-                }
-            },
-        }
-    }
-
-    fn edittick(&mut self) {
-        let (mouse_x, mouse_y) = mouse_position();
-        let sh = screen_height();
-        let bxy = mouse_to_block_xy(mouse_x, mouse_y, self.scroll, sh);
-                
-        if is_key_down(KeyCode::Escape) {
-            self.gamestate = GameState::Menu;
-        }
-
-        if is_key_down(KeyCode::A) {
-            if is_key_down(KeyCode::LeftShift) {
-                self.scroll -= 64.0;
-            }
-            else {
-                self.scroll -= 16.0;
-            }
-            if self.scroll < 0.0{
-                self.scroll = 0.0;
-            }
-        }
-
-        if is_key_down(KeyCode::D) {
-            if is_key_down(KeyCode::LeftShift) {
-                self.scroll += 64.0;
-            }
-            else {
-                self.scroll += 16.0;
-            }
-            if self.scroll > (LEVEL_WIDTH*16) as f32 - screen_width() {
-                self.scroll = (LEVEL_WIDTH*16) as f32 - screen_width();
-            }
-        }
-        
-        if let Some((bx, by)) = bxy {
-            if is_mouse_button_down(MouseButton::Left){
-                
-                match self.build_block {
-                    BlockType::Spawn => {
-                        if self.spawn != (bx as u32, by as u32) {self.level_blocks[(self.spawn.0 as usize  + self.spawn.1 as usize * LEVEL_WIDTH)].block_type = BlockType::Empty}
-                        self.spawn.0 = bx as u32;
-                        self.spawn.1 = by as u32;
-                    },
-                    _ => {
-                        for x in 0..self.pensize*2-1 {
-                            for y in 0..self.pensize*2-1 {
-                                if (bx as i32+x as i32-self.pensize as i32+1 + (by as i32+y as i32-self.pensize as i32+1) * LEVEL_WIDTH as i32) < (LEVEL_HEIGHT*LEVEL_WIDTH) as i32 && (bx as i32+x as i32-self.pensize as i32 + (by as i32+y as i32-self.pensize as i32) * LEVEL_WIDTH as i32) > 0 {
-                                    self.level_blocks[(bx+x-self.pensize+1 + (by+y-self.pensize+1) * LEVEL_WIDTH)].block_type = self.build_block;
-                                }
-                            }
-                        }
-                        
-                    },
-                }
-            }
-
-            if is_mouse_button_down(MouseButton::Right) {
-                for x in 0..self.pensize*2-1 {
-                    for y in 0..self.pensize*2-1 {
-                        if (bx as i32+x as i32-self.pensize as i32+1 + (by as i32+y as i32-self.pensize as i32+1) * LEVEL_WIDTH as i32) < (LEVEL_HEIGHT*LEVEL_WIDTH) as i32 && (bx as i32+x as i32-self.pensize as i32 + (by as i32+y as i32-self.pensize as i32) * LEVEL_WIDTH as i32) > 0 {
-                            self.level_blocks[(bx+x-self.pensize+1 + (by+y-self.pensize+1) * LEVEL_WIDTH)].block_type = BlockType::Empty;
-                        }                    
+            StateType::Edit(mut editor) => {
+                self.map.draw(editor.scroll);
+                let tick = editor.tick(false);
+                if tick.is_some() {
+                    let unwrapped_tick = tick.unwrap();
+                    if unwrapped_tick.0+unwrapped_tick.1*MAP_SIZE.0 < self.map.blocks.len() {
+                        self.map.set_block(unwrapped_tick.0 as u8, unwrapped_tick.1 as u8, Block::new(editor.brushtype));
                     }
+                    
                 }
                 
-            }
+                draw_line(0.0, MAP_SIZE.1 as f32*10.0+2.0, MAP_SIZE.0 as f32*10.0, MAP_SIZE.1 as f32*10.0+2.0, 1.0, WHITE);
+            },
 
+            StateType::Play(mut player) => {
+                self.map.draw(
+                    if player.position.x < screen_width()/2.0 {
+                        0.0
+                    } else if MAP_SIZE.0 as f32*10.0-player.position.x > screen_width()/2.0 {
+                        MAP_SIZE.0 as f32*10.0-screen_width()
+                    } else {
+                        player.position.x-screen_width()/2.0
+                    }
+                );
+
+                player.tick();
+            },
         }
+
+        let mut on_button = false;
+        for button in 0..self.buttons.len() { 
+            match self.buttons[button].tick() {
+                Some(0) => {
+                    self.state.statetype = StateType::Edit(Editor::new());
+                    self.buttons = 
+                        vec![
+                            Button::menu_edit(), 
+                            Button::brush_size(true), 
+                            Button::brush_size(false), 
+                            Button::brush_type(BlockType::Brick),
+                            Button::brush_type(BlockType::Water),
+                            Button::brush_type(BlockType::Lava),
+                            Button::brush_type(BlockType::None),
+                        ];
+                    break
+                }, // Menu to edit
+                Some(1) => {
+                    self.state.statetype = StateType::Play(Player::new(self.map.spawn.0 as f32*10.0, self.map.spawn.1 as f32*10.0));
+                    self.buttons = vec![Button::edit_menu(), Button::play_menu()];
+                    break
+                }, // Menu to play
+                Some(2) => {
+                    self.state.statetype = StateType::Menu;
+                    self.buttons = vec![Button::edit_menu(), Button::play_menu()];
+                    break
+                }, // Edit to menu
+                Some(3) => {
+                    self.state.statetype = StateType::Menu;
+                    self.buttons = vec![Button::edit_menu(), Button::play_menu()];
+                    break
+                }, // Play to menu
+                //Some() => {},
+                Some(11) => {
+                    on_button = true;
+                }
+                _ => {},
+            };
+        }
+    }
+}
+
+enum ButtonFunction {
+
+}
+
+struct State {
+    statetype: StateType,
+    tickcount: u32,
+}
+
+
+#[derive(Clone, Copy)]
+enum StateType {
+    Menu,
+    Edit(Editor),
+    Play(Player),
+}
+
+struct Button {
+    buttontype: ButtonType,
+    pressed: bool, 
+    tick: u32,
+}
+
+impl Button {
+    fn tick(&mut self) -> Option<u8> {
+        self.tick += 1;
+        let mouse_position = mouse_position();
+        let screen_dimensions = (screen_width(), screen_height());
         
-        clear_background(BLACK);
-        for x in 0..LEVEL_WIDTH {
-            for y in 0..LEVEL_HEIGHT {
-                let block = get_block(x as u8, y as u8, &self.level_blocks);
-                let block_color = match block.block_type{
-                    BlockType::Rock => DARKGRAY,
-                    BlockType::Water => BLUE,
-                    BlockType::Lava {heat: _} => RED,
-                    BlockType::Spawn => PINK,
-                    _ => BLACK,
-                };
-                draw_rectangle(x as f32 * 16.0-self.scroll+1.0, 1024.0 - y as f32 * 16.0+1.0, 14.0, 14.0, block_color);
-            }
-        }
+        let (size, position, text) = 
+        match self.buttontype {
+            ButtonType::BrushSize(plus) => (   
+                Vec2::new(30.0, 30.0),
+                if plus {
+                    Vec2::new(screen_dimensions.0, screen_dimensions.1)
+                } else {
+                    Vec2::new(screen_dimensions.0, screen_dimensions.1)
+                },
+                if plus {"+"} else {"-"}
+            ),
+            ButtonType::BrushType(blocktype) => ( 
+                match blocktype {
+                    BlockType::Brick => {
+                        (Vec2::new(30.0, 30.0), Vec2::new(screen_dimensions.0/2.0 - 100.0 + 10.0, screen_dimensions.1 - 50.0), "B")
+                    },
 
-        if let Some((bx, by)) = bxy{
-            draw_rectangle_lines(bx as f32 * 16.0-self.scroll, 1024.0 - by as f32 * 16.0, 16.0, 16.0, 2.0, WHITE);
-            draw_line(0.0, 1024.0 - by as f32 * 16.0+8.0, screen_width(), 1024.0 - by as f32 * 16.0+8.0, 1.0, GRAY);
-            draw_line(bx as f32 * 16.0-self.scroll+8.0, 0.0, bx as f32 * 16.0-self.scroll+8.0, sh-100.0, 1.0, GRAY);
-        }
+                    BlockType::Water => {
+                        (Vec2::new(30.0, 30.0), Vec2::new(screen_dimensions.0/2.0 - 50.0 + 10.0, screen_dimensions.1 - 50.0), "W")
+                    },
 
-        let selected = match self.build_block {
-            BlockType::Lava { heat: _ } => 0.0,
-            BlockType::Water => 1.0,
-            BlockType::Rock => 2.0,
-            BlockType::Spawn => 3.0,
-            _ => 5.0,
+                    BlockType::Lava => {
+                        (Vec2::new(30.0, 30.0), Vec2::new(screen_dimensions.0/2.0 + 10.0, screen_dimensions.1 - 50.0), "L")
+                    },
+
+                    BlockType::None => {
+                        (Vec2::new(30.0, 30.0), Vec2::new(screen_dimensions.0/2.0 + 50.0 + 10.0, screen_dimensions.1 - 50.0), "A")
+                    },
+                }
+            ),
+
+            ButtonType::MenuToEdit => (Vec2::new(50.0, 30.0), Vec2::new(screen_dimensions.0/2.0 - 25.0, screen_dimensions.1/2.0 + 5.0), "Edit"),
+            ButtonType::MenuToPlay => (Vec2::new(50.0, 30.0), Vec2::new(screen_dimensions.0/2.0 - 25.0, screen_dimensions.1/2.0 - 35.0), "Play"),
+            ButtonType::PlayToMenu => (Vec2::new(50.0, 30.0), Vec2::new(screen_dimensions.0 - 60.0, 10.0), "Menu"),
+            ButtonType::EditToMenu => (Vec2::new(50.0, 30.0), Vec2::new(screen_dimensions.0 - 60.0, 10.0), "Menu"),
+            ButtonType::NewMap => (Vec2::new(50.0, 30.0), Vec2::new(screen_dimensions.0, screen_dimensions.1), "New Map"),
         };
 
-        draw_rectangle(screen_width()/2.0-85.0, sh-60.0, 20.0, 20.0, RED);
-        draw_rectangle(screen_width()/2.0-35.0, sh-60.0, 20.0, 20.0, BLUE);
-        draw_rectangle(screen_width()/2.0+15.0, sh-60.0, 20.0, 20.0, DARKGRAY);
-        draw_rectangle(screen_width()/2.0+65.0, sh-60.0, 20.0, 20.0, PINK);
-
-        draw_rectangle_lines(screen_width()/2.0-100.0+(50.0*selected), sh-75.0, 50.0, 50.0, 5.0, WHITE);
-
-        draw_line(screen_width()/2.0+202.5, sh-50.0, screen_width()/2.0+217.5, sh-50.0, 2.5, WHITE);
-        draw_line(screen_width()/2.0+270.0, sh-50.0, screen_width()/2.0+290.0, sh-50.0, 2.5, WHITE);
-        draw_line(screen_width()/2.0+280.0, sh-60.0, screen_width()/2.0+280.0, sh-40.0, 2.5, WHITE);
-        draw_text_ex(&self.pensize.to_string(), screen_width()/2.0+238.0, sh-40.0, TextParams {font_size: 50, font: self.font, color: WHITE, ..Default::default()});
-        draw_line(0.0, sh-100.0, screen_width(), sh-100.0, 2.5, WHITE);
-
-
-
-        if is_key_pressed(KeyCode::Key1) {
-            self.build_block = BlockType::Lava { heat: 15.0 }
-        } else if is_key_pressed(KeyCode::Key2) {
-            self.build_block = BlockType::Water
-        } else if is_key_pressed(KeyCode::Key3) {
-            self.build_block = BlockType::Rock
-        } else if is_key_pressed(KeyCode::Key4) {
-            self.build_block = BlockType::Spawn
+        if mouse_position.0 > position.x && mouse_position.0 < position.x+size.x && mouse_position.1 > position.y && mouse_position.1 < position.y+size.y {
+            if self.pressed {
+                draw_rectangle_lines(position.x+2.0, position.y+2.0, size.x-4.0, size.y-4.0, 4.0, WHITE);
+            } else {
+                draw_rectangle_lines(position.x, position.y, size.x, size.y, 4.0, WHITE);
+                if is_mouse_button_down(MouseButton::Left) {
+                    self.pressed = true;
+                    self.tick = 0;
+                }
+            }
+        } else {
+            draw_rectangle_lines(position.x, position.y, size.x, size.y, 2.0, WHITE);
         }
 
+        let text_center = get_text_center(text, None, 20, 1.0, 0.0);
+        draw_text(text, position.x+size.x/2.0-text_center.x, position.y+size.y/2.0-text_center.y, 20.0, WHITE);
+
+        if self.tick == 10 && self.pressed {
+            return Some (
+                match self.buttontype {
+                    ButtonType::MenuToEdit => 0,
+                    ButtonType::MenuToPlay => 1,
+                    ButtonType::EditToMenu => 2,
+                    ButtonType::PlayToMenu => 3,
+                    ButtonType::NewMap => 4,
+                    ButtonType::BrushSize(true) => 5,
+                    ButtonType::BrushSize(false) => 6,
+                    ButtonType::BrushType(BlockType::Brick) => 7,
+                    ButtonType::BrushType(BlockType::Water) => 8,
+                    ButtonType::BrushType(BlockType::Lava) => 9,
+                    ButtonType::BrushType(BlockType::None) => 10,
+                }
+            )
+        }
+        
+        None
     }
 
+    fn edit_menu() -> Self {
+        Self {
+            buttontype: ButtonType::MenuToEdit,
+            pressed: false,
+            tick: 0,
+        }
+    }
+
+    fn play_menu() -> Self {
+        Self {
+            buttontype: ButtonType::MenuToPlay,
+            pressed: false,
+            tick: 0,
+        }
+    }
+
+    fn menu_edit() -> Self {
+        Self {
+            buttontype: ButtonType::EditToMenu,
+            pressed: false,
+            tick: 0,
+        }
+    }
+
+    fn menu_play() -> Self {
+        Self {
+            buttontype: ButtonType::PlayToMenu,
+            pressed: false,
+            tick: 0,
+        }
+    }
+
+    fn brush_size(bool: bool) -> Self {
+        Self {
+            buttontype: ButtonType::BrushSize(bool),
+            pressed: false,
+            tick: 0,
+        }
+    }
+
+    fn brush_type(blocktype: BlockType) -> Self {
+        Self {
+            buttontype: ButtonType::BrushType(blocktype),
+            pressed: false,
+            tick: 0,
+        }
+    } 
 }
 
-fn check_hover(mx: f32, my: f32, x: f32, y: f32, w: f32, h: f32) -> bool {
-    if mx > x && mx < x+w {if my > y && my < y+h {return true} else {return false}} else {return false}
+
+enum ButtonType {
+    BrushSize(bool),
+    BrushType(BlockType),
+    MenuToEdit,
+    MenuToPlay,
+    PlayToMenu,
+    EditToMenu,
+    NewMap,
 }
 
+struct Text {
+
+}
+
+#[derive(Clone, Copy)]
+struct Player {
+    position: Vec2,
+    velocity: Vec2,
+}
+
+impl Player {
+    fn new(x: f32, y: f32) -> Self {
+        Self {
+            position: Vec2::new(x, y),
+            velocity: Vec2::new(0.0, 0.0),
+        }
+    }
+
+    fn tick(&mut self) {
+        
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Editor {
+    scroll: f32,
+    brushtype: BlockType,
+}
+
+impl Editor {
+    fn new() -> Self {
+        Self {
+            scroll: 0.0,
+            brushtype: BlockType::Brick,
+        }
+    }
+
+    fn tick(&mut self, on_button: bool)  ->  Option<BlockPosition> {
+        if is_mouse_button_down(MouseButton::Left) && !on_button {
+            Some(get_mouse_block())
+        } else {
+            None
+        }
+    }
+}
+
+struct Map {
+    blocks: [Block; MAP_SIZE.0*MAP_SIZE.1],
+    spawn: BlockPosition,
+}
+
+impl Map {
+    fn new() -> Self {
+        Self {
+            blocks: [Block::new(BlockType::None); MAP_SIZE.0*MAP_SIZE.1],
+            spawn: (0, 0),
+        }
+    }
+
+    fn draw(&self, scroll: f32) {
+        for x in 0..MAP_SIZE.0 {
+            for y in 0..MAP_SIZE.1 {
+                let block = self.get_block(x, y);
+                block.draw(x as f32*10.0+scroll, y as f32*10.0)
+            }
+        }
+    }
+
+    
+
+    fn get_block(&self, x: usize, y: usize) -> Block {
+        self.blocks[x+y*MAP_SIZE.0]
+    }
+
+    fn set_block(&mut self, x: u8, y: u8, block: Block) {
+        self.blocks[x as usize+y as usize*MAP_SIZE.0] = block;
+    }
+}
+
+fn get_mouse_block() -> BlockPosition {
+    let mouse_position = mouse_position();
+    ((mouse_position.0/10.0) as usize, (mouse_position.1/10.0) as usize)
+}
+
+#[derive(Clone, Copy)]
+struct Block {
+    blocktype: BlockType,
+}
+
+impl Block {
+    fn new(blocktype: BlockType) -> Self {
+        Self {
+            blocktype,
+        }
+    }
+
+    fn draw(self, x: f32, y: f32) {
+        match self.blocktype {
+            BlockType::None => {},
+            _ => { draw_rectangle(x, y, 10.0, 10.0, match self.blocktype { BlockType::Brick => GRAY, BlockType::Lava => RED, BlockType::Water => BLUE, BlockType::None => GREEN}) }, 
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum BlockType {
+    Brick,
+    Lava,
+    Water,
+    None,
+}
+
+fn window_conf() -> Conf {
+    Conf {
+        window_resizable: true,
+        window_title: String::from("Quadrunster"),
+        ..Default::default()
+    }
+}
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut game = Game::start().await;
-    loop { game.tick(); next_frame().await }
-}
-
-enum GameState {
-    Menu,
-    Edit,
-    Play,
-}
-
-#[derive(Copy, Clone)]
-enum MenuState {
-    Switcher,
-}
-
-
-/*
-
-    let mut points:Vec<Point> = vec![];
-    
-    let mut fps = 0;
-    let mut increment:i64 = 0;
+    let mut global = Global::init();
 
     loop {
-        increment += 1;
-        if increment % 30 == 0 {
-            fps = get_fps();
-        }
-
-        let (mouse_x, mouse_y) = mouse_position();
-        
-        let gravity = is_mouse_button_down(MouseButton::Right);
-        let g = vec2(mouse_x, mouse_y);
-        
-        if is_mouse_button_down(MouseButton::Left) {
-            for _ in 0..10 {
-                let vx:f32 = rng.gen_range(-1.0..1.0);
-                let vy:f32 = rng.gen_range(-1.0..1.0);
-                let vr:f32 = rng.gen_range(-4.0..4.0);
-                points.push(Point::new(mouse_x, mouse_y, 0.0, vx, vy, vr, YELLOW ));
-            }
-        }
-
-        let sw = screen_width();
-        let sh = sh;
-
-        points.retain(|p| p.x > 0.0 && p.x < sw && p.y > 0.0 && p.y < sh);
-
-        for point in points.iter_mut(){
-            if gravity {
-                let p = vec2(point.x, point.y);
-                let v = g - p;
-                let q = (1.0 / (p.distance(g).powf(1.5).max(-1.0))) * 10.0;
-
-                point.vx += v.x * q;
-                point.vy += v.y * q;
-            }
-
-            point.vx *= 0.99;
-            point.vy *= 0.99;
-            point.update();
-        }
-        
-
-
-
-        //clear_background(BLACK);
-
-        if gravity {
-            draw_circle(mouse_x, mouse_y, 10.0, BLUE);
-        }
-
-        for point in points.iter(){
-            draw_poly_lines(point.x, point.y, 3, 7.0, point.r, 1.0, point.color);
-        }
-
-        draw_rectangle(0.0,0.0, screen_width(), 60.0, GRAY);
-        draw_text(format!("There are {} objects, running at {} fps", points.len(), fps).as_str(), 20.0, 50.0, 50.0, WHITE);
-
-        
-
-        next_frame().await;
+        global.tick();
+        next_frame().await
     }
-
-
-*/
+}
